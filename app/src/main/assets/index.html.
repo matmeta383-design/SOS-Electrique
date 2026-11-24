@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#17324d">
+<title>S.O.S électrique</title>
+<style>
+:root{--navy:#17324d;--bg:#eef2f6;--line:#cbd5df;--text:#182433}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:var(--navy);color:white;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+header strong{font-size:18px}header small{display:block;color:#d9e5ef;font-size:11px;margin-top:3px}
+button,.filelabel{border:1px solid #b8c5d2;background:white;color:#17324d;border-radius:8px;padding:9px 11px;font-weight:600;font-size:13px}
+button:active{transform:scale(.98)}button.primary{background:#1769aa;color:white;border-color:#1769aa}
+.toolbar{display:flex;gap:7px;overflow-x:auto;padding:9px;background:#fff;border-bottom:1px solid var(--line);white-space:nowrap}
+.toolbar button{flex:none}.toolbar button.active{background:#dceeff;border-color:#1769aa;color:#0b5793}
+main{display:grid;grid-template-columns:190px 1fr;min-height:calc(100vh - 112px)}
+aside{background:#fff;border-right:1px solid var(--line);padding:10px;overflow:auto}
+aside h3{font-size:13px;margin:5px 0 9px;color:#536273}
+.palette{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.palette button{min-height:55px;font-size:11px;white-space:normal}
+.help{font-size:11px;line-height:1.45;color:#536273;margin-top:12px}
+.workspace{min-width:0;display:flex;flex-direction:column}
+.status{padding:7px 10px;background:#f8fafc;border-bottom:1px solid var(--line);font-size:12px;color:#526171}
+.canvaswrap{flex:1;overflow:auto;background-color:#e7edf3;background-image:radial-gradient(#c7d1dc 1px,transparent 1px);background-size:18px 18px;touch-action:pan-x pan-y}
+svg#board{display:block;background:#fff;margin:16px;box-shadow:0 2px 12px #172b4d22;touch-action:none}
+.properties{padding:9px;background:#fff;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px}
+.properties input{width:110px;padding:7px;border:1px solid var(--line);border-radius:6px}
+.properties span{color:#536273}
+@media(max-width:700px){
+ main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+ aside{border-right:0;border-bottom:1px solid var(--line);padding:7px}
+ .palette{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .palette button{min-height:48px;padding:6px;font-size:11px}
+ .help{display:none}
+ .canvaswrap{min-height:58vh;overscroll-behavior:contain}
+ .properties{align-items:flex-start}
+ .properties label{display:flex;flex-direction:column;gap:4px}
+ .properties input{width:105px}
+ header strong{font-size:16px}
+}
+@media print{header,.toolbar,aside,.status,.properties{display:none!important}main{display:block}.canvaswrap{overflow:visible;background:white}svg#board{margin:0;box-shadow:none;width:100%;height:auto}}
+</style>
+</head>
+<body>
+<header><div><strong>S.O.S électrique</strong><small>Application de dessin de schémas électriques</small></div><button class="primary" onclick="newProject()">Nouveau schéma</button></header>
+<div class="toolbar">
+<button id="selectMode" class="active" onclick="setMode('select')">Sélectionner</button>
+<button id="wireMode" onclick="setMode('wire')">Tracer un fil</button>
+<button onclick="autoConnect()">Raccordement auto</button>
+<button onclick="undo()">Annuler</button>
+<button onclick="deleteSelected()">Supprimer</button>
+<button onclick="saveProject()">Enregistrer</button>
+<button onclick="document.getElementById('loadFile').click()">Ouvrir</button>
+<button onclick="exportSVG()">Exporter SVG</button>
+<button onclick="window.print()">Imprimer / PDF</button>
+<input id="loadFile" type="file" accept=".json,application/json" hidden onchange="loadProject(event)">
+</div>
+<main>
+<aside>
+<h3>APPAREILLAGES À AJOUTER</h3>
+<div class="palette">
+<button onclick="addPart('source')">⚡<br>Source</button>
+<button onclick="addPart('ns3')">▣<br>NS250 3P</button>
+<button onclick="addPart('ns4')">▣<br>NS250 4P</button>
+<button onclick="addPart('tb')">▤<br>Bornier XP1</button>
+<button onclick="addPart('qf2')">Ⅱ<br>Disj. 2P</button>
+<button onclick="addPart('qf3')">Ⅲ<br>Disj. 3P</button>
+<button onclick="addPart('qf4')">Ⅳ<br>Disj. 4P</button>
+<button onclick="addPart('load')">⌂<br>Départ charge</button>
+<button onclick="addPart('motor')">M<br>Moteur asynchrone</button>
+<button onclick="addPart('switch')">⏚<br>Sectionneur</button>
+<button onclick="addPart('thermal')">Θ<br>Relais thermique</button>
+<button onclick="addPart('push')">○<br>Bouton poussoir</button>
+<button onclick="addPart('pilot')">●<br>Voyant</button>
+<button onclick="addPart('sensor')">◉<br>Capteur</button>
+<button onclick="addPart('contactor')">K<br>Contacteur</button>
+</div>
+<div class="help">
+<b>Mode d'emploi</b><br>
+1. Ajoute un appareillage avec les boutons.<br>
+2. En mode Sélectionner, touche un élément puis déplace-le.<br>
+3. En mode Tracer un fil, touche une borne puis une autre borne pour les relier.<br>
+4. Sélectionne un élément pour modifier son repère et son calibre.<br>
+5. Enregistre ton projet en JSON pour le rouvrir plus tard.<br><br>
+<b>Couleurs des conducteurs</b><br>
+<span style="color:#c62828">■ L1 rouge</span> · <span style="color:#222">■ L2 noir</span><br>
+<span style="color:#777">■ L3 gris</span> · <span style="color:#1565c0">■ N bleu</span><br>
+<span style="color:#23834a">■ PE vert/jaune</span><br><br>
+Le raccordement automatique relie uniquement les bornes portant le même repère. Il ne calcule pas les protections et ne garantit pas la conformité électrique. Vérifie visuellement chaque liaison.
+</div>
+</aside>
+<section class="workspace">
+<div class="status" id="status">Prêt. Ajoute un appareil ou choisis « Tracer un fil ».</div>
+<div class="canvaswrap"><svg id="board" width="1400" height="900" viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div class="properties">
+<strong>Élément :</strong><span id="selectedName">Aucun</span>
+<label>Repère <input id="propRef" placeholder="Ex. QF1" oninput="updateProp('ref',this.value)"></label>
+<label>Calibre <input id="propRating" placeholder="Ex. 80 A" oninput="updateProp('rating',this.value)"></label>
+<span id="pinHint">Choisis un élément.</span>
+</div>
+</section>
+</main>
+<script>
+const NS='http://www.w3.org/2000/svg';
+const board=document.getElementById('board');
+let parts=[],wires=[],selected=null,mode='select',wireStart=null,drag=null,history=[];
+let counters={source:0,ns3:0,ns4:0,tb:0,qf2:0,qf3:0,qf4:0,load:0,motor:0,switch:0,thermal:0,push:0,pilot:0,sensor:0,contactor:0};
+const colors={L1:'#c62828',L2:'#222222',L3:'#777777',N:'#1565c0',PE:'#23834a'};
+const specs={
+ source:{label:'SOURCE',pins:['L1','L2','L3','N'],w:112,h:74},
+ ns3:{label:'NS250 3P',pins:['L1','L2','L3'],w:130,h:92},
+ ns4:{label:'NS250 4P',pins:['L1','L2','L3','N'],w:145,h:92},
+ tb:{label:'BORNIER XP1',pins:['L1','L2','L3','N'],w:160,h:72},
+ qf2:{label:'DISJONCTEUR 2P',pins:['L','N'],w:125,h:92},
+ qf3:{label:'DISJONCTEUR 3P',pins:['L1','L2','L3'],w:135,h:92},
+ qf4:{label:'DISJONCTEUR 4P',pins:['L1','L2','L3','N'],w:150,h:92},
+ load:{label:'DÉPART CHARGE',pins:['L1','L2','L3','N'],w:130,h:70},
+ motor:{label:'MOTEUR ASYNCHRONE',pins:['U1','V1','W1','PE'],w:150,h:90},
+ switch:{label:'SECTIONNEUR',pins:['L1','L2','L3'],w:135,h:92},
+ thermal:{label:'RELAIS THERMIQUE',pins:['L1','L2','L3','T1','T2','T3'],w:165,h:92},
+ push:{label:'BOUTON POUSSOIR',pins:['13','14'],w:130,h:75},
+ pilot:{label:'VOYANT',pins:['X1','X2'],w:115,h:75},
+ sensor:{label:'CAPTEUR',pins:['A1','A2','S'],w:125,h:82},
+ contactor:{label:'CONTACTEUR',pins:['L1','L2','L3','T1','T2','T3','A1','A2'],w:175,h:110}
+};
+function uid(){return 'p'+Math.random().toString(36).slice(2,9)}
+function snap(){history.push(JSON.stringify({parts,wires,counters}));if(history.length>40)history.shift()}
+function setMode(m){mode=m;wireStart=null;document.querySelectorAll('.toolbar button').forEach(b=>b.classList.remove('active'));document.getElementById(m==='wire'?'wireMode':'selectMode').classList.add('active');status(m==='wire'?'Mode fil : touche la première borne, puis la borne d’arrivée.':'Mode sélection : touche et déplace un appareil.')}
+function status(s){document.getElementById('status').textContent=s}
+function addPart(type){snap();let sp=specs[type],idx=++counters[type];let p={id:uid(),type,x:100+(parts.length%5)*210,y:100+Math.floor(parts.length/5)*150,ref:({source:'ALIM',ns3:'QG3',ns4:'QG4',tb:'XP1',qf2:'QF2',qf3:'QF3',qf4:'QF4',load:'CH',motor:'M',switch:'QS',thermal:'RT',push:'BP',pilot:'H',sensor:'B',contactor:'KM'})[type]+idx,rating:type.startsWith('qf')?(type==='qf2'?'25 A':type==='qf3'?'32 A':'80 A'):'',};parts.push(p);selected=p.id;render();syncProps();saveLocal();status(sp.label+' ajouté. Déplace-le à la position souhaitée.')}
+function pinPos(p,i){let s=specs[p.type],gap=s.w/(s.pins.length+1);return{x:p.x+(i+1)*gap,y:p.y+s.h}}
+function render(){
+ board.innerHTML='';
+ let g=document.createElementNS(NS,'g');board.appendChild(g);
+ wires.forEach((w,i)=>{let a=parts.find(p=>p.id===w.a),b=parts.find(p=>p.id===w.b);if(!a||!b)return;let pa=pinPos(a,w.ai),pb=pinPos(b,w.bi),col=colors[w.color]||'#333';let path=document.createElementNS(NS,'path');path.setAttribute('d',`M ${pa.x} ${pa.y} V ${Math.min(pa.y+22,(pa.y+pb.y)/2)} H ${pb.x} V ${pb.y}`);path.setAttribute('fill','none');path.setAttribute('stroke',col);path.setAttribute('stroke-width','2.5');path.setAttribute('stroke-linejoin','round');g.appendChild(path);let hit=document.createElementNS(NS,'path');hit.setAttribute('d',path.getAttribute('d'));hit.setAttribute('stroke','transparent');hit.setAttribute('stroke-width','12');hit.setAttribute('fill','none');hit.addEventListener('click',()=>{snap();wires.splice(i,1);render()});g.appendChild(hit)});
+ parts.forEach(p=>{
+  let s=specs[p.type],grp=document.createElementNS(NS,'g');grp.setAttribute('transform',`translate(${p.x},${p.y})`);grp.style.cursor='move';g.appendChild(grp);
+  let box=document.createElementNS(NS,'rect');box.setAttribute('width',s.w);box.setAttribute('height',s.h);box.setAttribute('rx','8');box.setAttribute('fill',selected===p.id?'#e6f3ff':'#fff');box.setAttribute('stroke',selected===p.id?'#1769aa':'#34495e');box.setAttribute('stroke-width',selected===p.id?'3':'1.5');grp.appendChild(box);
+  let title=document.createElementNS(NS,'text');title.setAttribute('x',s.w/2);title.setAttribute('y',17);title.setAttribute('text-anchor','middle');title.setAttribute('font-size','11');title.setAttribute('font-weight','bold');title.textContent=p.ref;grp.appendChild(title);
+  if(p.type.startsWith('ns')||p.type.startsWith('qf')){
+   let n=s.pins.length,gap=s.w/(n+1);
+   for(let i=0;i<n;i++){let x=(i+1)*gap;let circ=document.createElementNS(NS,'circle');circ.setAttribute('cx',x);circ.setAttribute('cy',40);circ.setAttribute('r',4);circ.setAttribute('fill','#fff');circ.setAttribute('stroke',colors[s.pins[i]]||'#333');circ.setAttribute('stroke-width','2');grp.appendChild(circ);
+    let blade=document.createElementNS(NS,'line');blade.setAttribute('x1',x);blade.setAttribute('y1',40);blade.setAttribute('x2',x+12);blade.setAttribute('y2',29);blade.setAttribute('stroke','#263746');blade.setAttribute('stroke-width','2');grp.appendChild(blade);
+    let lab=document.createElementNS(NS,'text');lab.setAttribute('x',x);lab.setAttribute('y',60);lab.setAttribute('font-size','9');lab.setAttribute('text-anchor','middle');lab.textContent=s.pins[i];grp.appendChild(lab);
+   }
+   let link=document.createElementNS(NS,'line');link.setAttribute('x1',gap);link.setAttribute('x2',s.w-gap);link.setAttribute('y1',67);link.setAttribute('y2',67);link.setAttribute('stroke','#34495e');link.setAttribute('stroke-dasharray','3 3');grp.appendChild(link);
+  }else if(p.type==='tb'){
+   let n=s.pins.length,gap=s.w/(n+1);for(let i=0;i<n;i++){let x=(i+1)*gap;let r=document.createElementNS(NS,'rect');r.setAttribute('x',x-10);r.setAttribute('y',29);r.setAttribute('width',20);r.setAttribute('height',23);r.setAttribute('fill','#fff5dc');r.setAttribute('stroke','#a36b00');grp.appendChild(r);let lab=document.createElementNS(NS,'text');lab.setAttribute('x',x);lab.setAttribute('y',67);lab.setAttribute('font-size','9');lab.setAttribute('text-anchor','middle');lab.textContent=s.pins[i];grp.appendChild(lab)}
+  }else if(p.type==='motor'){
+   let circ=document.createElementNS(NS,'circle');circ.setAttribute('cx',s.w/2);circ.setAttribute('cy',43);circ.setAttribute('r',19);circ.setAttribute('fill','white');circ.setAttribute('stroke','#263746');circ.setAttribute('stroke-width','2');grp.appendChild(circ);
+   let m=document.createElementNS(NS,'text');m.setAttribute('x',s.w/2);m.setAttribute('y',47);m.setAttribute('font-size','15');m.setAttribute('font-weight','bold');m.setAttribute('text-anchor','middle');m.textContent='M';grp.appendChild(m);
+   let sub=document.createElementNS(NS,'text');sub.setAttribute('x',s.w/2);sub.setAttribute('y',70);sub.setAttribute('font-size','9');sub.setAttribute('text-anchor','middle');sub.textContent='3~';grp.appendChild(sub);
+  }else if(p.type==='switch'||p.type==='thermal'||p.type==='contactor'){
+   let count=p.type==='switch'?3:(p.type==='thermal'?3:3);
+   for(let i=0;i<count;i++){let x=22+i* (s.w-44)/(count-1);let y=43;
+    let a=document.createElementNS(NS,'circle');a.setAttribute('cx',x);a.setAttribute('cy',y-7);a.setAttribute('r',3);a.setAttribute('fill','white');a.setAttribute('stroke','#263746');grp.appendChild(a);
+    let b=document.createElementNS(NS,'circle');b.setAttribute('cx',x+8);b.setAttribute('cy',y+5);b.setAttribute('r',3);b.setAttribute('fill','white');b.setAttribute('stroke','#263746');grp.appendChild(b);
+    let blade=document.createElementNS(NS,'line');blade.setAttribute('x1',x);blade.setAttribute('y1',y-7);blade.setAttribute('x2',x+8);blade.setAttribute('y2',y+5);blade.setAttribute('stroke','#263746');blade.setAttribute('stroke-width','1.8');grp.appendChild(blade);
+   }
+   let sub=document.createElementNS(NS,'text');sub.setAttribute('x',s.w/2);sub.setAttribute('y',s.h-23);sub.setAttribute('font-size','9');sub.setAttribute('text-anchor','middle');sub.textContent=p.type==='switch'?'QS — coupure':p.type==='thermal'?'RT — surcharge':'KM — bobine A1/A2';grp.appendChild(sub);
+  }else if(p.type==='push'||p.type==='pilot'||p.type==='sensor'){
+   let sym=document.createElementNS(NS,'circle');sym.setAttribute('cx',s.w/2);sym.setAttribute('cy',39);sym.setAttribute('r',p.type==='pilot'?12:9);sym.setAttribute('fill',p.type==='pilot'?'#fff2a8':'white');sym.setAttribute('stroke','#263746');sym.setAttribute('stroke-width','2');grp.appendChild(sym);
+   if(p.type==='push'){let bar=document.createElementNS(NS,'line');bar.setAttribute('x1',s.w/2-12);bar.setAttribute('y1',26);bar.setAttribute('x2',s.w/2+12);bar.setAttribute('y2',26);bar.setAttribute('stroke','#263746');bar.setAttribute('stroke-width','2');grp.appendChild(bar)}
+   let sub=document.createElementNS(NS,'text');sub.setAttribute('x',s.w/2);sub.setAttribute('y',62);sub.setAttribute('font-size','9');sub.setAttribute('text-anchor','middle');sub.textContent=p.type==='push'?'NO / NF':p.type==='pilot'?'H — signalisation':'B — détection';grp.appendChild(sub);
+  }else{let label=document.createElementNS(NS,'text');label.setAttribute('x',s.w/2);label.setAttribute('y',43);label.setAttribute('text-anchor','middle');label.setAttribute('font-size','11');label.textContent=s.label;grp.appendChild(label)}
+  let rate=document.createElementNS(NS,'text');rate.setAttribute('x',s.w/2);rate.setAttribute('y',s.h-8);rate.setAttribute('text-anchor','middle');rate.setAttribute('font-size','10');rate.setAttribute('fill','#536273');rate.textContent=p.rating||s.label;grp.appendChild(rate);
+  // terminal pins along bottom edge
+  s.pins.forEach((lab,i)=>{let pos=pinPos(p,i),dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',pos.x-p.x);dot.setAttribute('cy',s.h);dot.setAttribute('r',5);dot.setAttribute('fill',colors[lab]||'#555');dot.setAttribute('stroke','#fff');dot.setAttribute('stroke-width','1.5');dot.style.cursor='crosshair';dot.addEventListener('click',e=>{e.stopPropagation();pinClick(p.id,i)});grp.appendChild(dot)});
+  grp.addEventListener('pointerdown',e=>{if(mode!=='select')return; e.preventDefault();snap();selected=p.id;drag={id:p.id,dx:e.offsetX-p.x,dy:e.offsetY-p.y};syncProps();render()});
+  grp.addEventListener('click',e=>{if(mode==='select'){selected=p.id;syncProps();render()}});
+ });
+}
+function pinClick(pid,i){if(mode!=='wire'){setMode('wire');status('Mode fil activé. Choisis une autre borne.');}
+ if(!wireStart){wireStart={id:pid,i};status('Première borne choisie. Touche maintenant la borne de destination.');return}
+ if(wireStart.id===pid){status('Choisis une autre borne.');return}
+ let a=parts.find(p=>p.id===wireStart.id),b=parts.find(p=>p.id===pid),lab=specs[a.type].pins[wireStart.i];snap();wires.push({a:a.id,ai:wireStart.i,b:b.id,bi:i,color:lab==='L'?'L1':lab});wireStart=null;render();saveLocal();status('Conducteur raccordé. Tu peux continuer avec une autre paire de bornes.')}
+board.addEventListener('pointermove',e=>{
+ if(!drag)return;
+ const p=parts.find(x=>x.id===drag.id); if(!p)return;
+ const pt=board.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+ const m=pt.matrixTransform(board.getScreenCTM().inverse());
+ p.x=Math.max(0,Math.min(1400-specs[p.type].w,m.x-drag.dx));
+ p.y=Math.max(0,Math.min(900-specs[p.type].h,m.y-drag.dy));
+ render();
+});
+function finishDrag(){if(drag){drag=null;saveLocal();status('Position de l’appareil enregistrée.');}}
+board.addEventListener('pointerup',finishDrag);
+board.addEventListener('pointercancel',finishDrag);
+window.addEventListener('pointerup',finishDrag);
+function syncProps(){let p=parts.find(x=>x.id===selected);document.getElementById('selectedName').textContent=p?p.type:'Aucun';document.getElementById('propRef').value=p?.ref||'';document.getElementById('propRating').value=p?.rating||'';document.getElementById('pinHint').textContent=p?'Bornes : '+specs[p.type].pins.join(', '):'Choisis un élément.'}
+function updateProp(k,v){let p=parts.find(x=>x.id===selected);if(p){p[k]=v;render();saveLocal()}}
+
+function autoConnect(){
+ if(parts.length<2){status('Ajoute au moins deux appareils.');return}
+ const list=parts.map((p,i)=>`${i+1}. ${p.ref} (${specs[p.type].label})`).join('\n');
+ const aNum=prompt('Choisis le numéro de l’appareil de départ :\n'+list);
+ if(aNum===null)return;
+ const bNum=prompt('Choisis le numéro de l’appareil d’arrivée :\n'+list);
+ if(bNum===null)return;
+ const ai=Number(aNum)-1,bi=Number(bNum)-1;
+ if(!Number.isInteger(ai)||!Number.isInteger(bi)||ai<0||bi<0||ai>=parts.length||bi>=parts.length||ai===bi){status('Sélection invalide.');return}
+ const a=parts[ai],b=parts[bi],pa=specs[a.type].pins,pb=specs[b.type].pins;
+ const pairs=[];
+ pa.forEach((lab,i)=>{
+   let target=pb.indexOf(lab);
+   if(target<0 && lab==='L') target=pb.indexOf('L1');
+   if(target>=0)pairs.push({a:a.id,ai:i,b:b.id,bi:target,color:lab==='L'?'L1':lab});
+ });
+ if(!pairs.length){status('Aucune borne de même repère entre ces deux appareils.');return}
+ snap();
+ pairs.forEach(w=>{
+   const exists=wires.some(x=>x.a===w.a&&x.ai===w.ai&&x.b===w.b&&x.bi===w.bi);
+   if(!exists)wires.push(w);
+ });
+ selected=b.id;render();syncProps();saveLocal();
+ status(`${pairs.length} conducteur(s) raccordé(s) automatiquement entre ${a.ref} et ${b.ref}. Vérifie chaque liaison avant utilisation.`);
+}
+function deleteSelected(){if(!selected)return;snap();parts=parts.filter(p=>p.id!==selected);wires=wires.filter(w=>w.a!==selected&&w.b!==selected);selected=null;render();syncProps();saveLocal();status('Élément supprimé.')}
+function undo(){if(!history.length){status('Aucune action à annuler.');return}let d=JSON.parse(history.pop());parts=d.parts;wires=d.wires;counters=d.counters;selected=null;render();syncProps();saveLocal();status('Dernière action annulée.')}
+function saveLocal(){try{localStorage.setItem('schema-elec-project',JSON.stringify({parts,wires,counters}))}catch(e){}}
+function saveProject(){let data={app:'Schema Electrique',version:1,parts,wires,counters};let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});download(blob,'mon-schema-electrique.json');saveLocal();status('Projet enregistré en fichier JSON.')}
+function loadProject(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{
+ let d=JSON.parse(r.result);
+ if(!d||!Array.isArray(d.parts)||!Array.isArray(d.wires))throw new Error('Structure invalide');
+ const validParts=d.parts.every(p=>p&&typeof p.id==='string'&&specs[p.type]&&Number.isFinite(Number(p.x))&&Number.isFinite(Number(p.y)));
+ const validWires=d.wires.every(w=>w&&typeof w.a==='string'&&typeof w.b==='string'&&Number.isInteger(w.ai)&&Number.isInteger(w.bi));
+ if(!validParts||!validWires)throw new Error('Données invalides');
+ parts=d.parts;wires=d.wires;counters=d.counters||counters;selected=null;wireStart=null;render();syncProps();saveLocal();status('Projet ouvert.');
+ }catch(e){status('Fichier non valide ou endommagé. Ton schéma actuel est conservé.')}};r.readAsText(f);ev.target.value=''}
+function exportSVG(){let clone=board.cloneNode(true);clone.setAttribute('xmlns',NS);let blob=new Blob([new XMLSerializer().serializeToString(clone)],{type:'image/svg+xml'});download(blob,'schema-electrique.svg');status('Schéma exporté en SVG.')}
+function download(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+function newProject(){if(!confirm('Créer un nouveau schéma ? Le dessin actuel sera effacé.'))return;snap();parts=[];wires=[];selected=null;counters={source:0,ns3:0,ns4:0,tb:0,qf2:0,qf3:0,qf4:0,load:0,motor:0,switch:0,thermal:0,push:0,pilot:0,sensor:0,contactor:0};render();syncProps();saveLocal();status('Nouveau schéma prêt.')}
+try{let d=JSON.parse(localStorage.getItem('schema-elec-project')||'null');if(d){parts=d.parts||[];wires=d.wires||[];counters=d.counters||counters}}catch(e){}
+render();syncProps();
+</script>
+</body></html>
