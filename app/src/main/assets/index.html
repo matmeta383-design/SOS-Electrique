@@ -167,7 +167,11 @@ function render(){
   let rate=document.createElementNS(NS,'text');rate.setAttribute('x',s.w/2);rate.setAttribute('y',s.h-8);rate.setAttribute('text-anchor','middle');rate.setAttribute('font-size','10');rate.setAttribute('fill','#536273');rate.textContent=p.rating||s.label;grp.appendChild(rate);
   // terminal pins along bottom edge
   s.pins.forEach((lab,i)=>{let pos=pinPos(p,i),dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',pos.x-p.x);dot.setAttribute('cy',s.h);dot.setAttribute('r',5);dot.setAttribute('fill',colors[lab]||'#555');dot.setAttribute('stroke','#fff');dot.setAttribute('stroke-width','1.5');dot.style.cursor='crosshair';dot.addEventListener('click',e=>{e.stopPropagation();pinClick(p.id,i)});grp.appendChild(dot)});
-  grp.addEventListener('pointerdown',e=>{if(mode!=='select')return; e.preventDefault();snap();selected=p.id;drag={id:p.id,dx:e.offsetX-p.x,dy:e.offsetY-p.y};syncProps();render()});
+  grp.addEventListener('pointerdown',e=>{if(mode!=='select')return; e.preventDefault();snap();selected=p.id;const pt=board.createSVGPoint();
+pt.x=e.clientX;
+pt.y=e.clientY;
+const m=pt.matrixTransform(board.getScreenCTM().inverse());
+drag={id:p.id,dx:m.x-p.x,dy:m.y-p.y};;syncProps();render()});
   grp.addEventListener('click',e=>{if(mode==='select'){selected=p.id;syncProps();render()}});
  });
 }
